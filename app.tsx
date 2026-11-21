@@ -8,6 +8,9 @@ const DICT = dictionary as Record<string, string>;
 const ATTRS = ["placeholder", "title", "aria-label", "alt"];
 const SKIP = new Set(["SCRIPT", "STYLE", "CODE", "PRE", "TEXTAREA", "KBD"]);
 const MISSING_KEY = "bb-ru-missing";
+// Код не переводим на любой глубине: в подсвеченных блоках текст лежит в <span> внутри <pre>/<code>.
+const SKIP_SELECTOR = "script,style,code,pre,textarea,kbd,samp,[class*=hljs],[class*=shiki],[class*=highlight],[data-language],[data-code]";
+const inSkipped = (el: Element | null) => !!el && (SKIP.has(el.tagName) || !!el.closest(SKIP_SELECTOR));
 
 function plural(n: number, one: string, few: string, many: string) {
   const a = n % 10, b = n % 100;
@@ -68,13 +71,13 @@ function translate(raw: string): string | null {
 
 function handleText(node: Text) {
   const parent = node.parentElement;
-  if (!parent || SKIP.has(parent.tagName) || parent.isContentEditable) return;
+  if (!parent || inSkipped(parent) || parent.isContentEditable) return;
   const cur = node.nodeValue ?? "";
   const res = translate(cur);
   if (res !== null && res !== cur) node.nodeValue = res;
 }
 function handleElement(el: Element) {
-  if (SKIP.has(el.tagName)) return;
+  if (inSkipped(el)) return;
   for (const a of ATTRS) {
     const v = el.getAttribute(a);
     if (v) {
@@ -121,7 +124,7 @@ function TranslateButton() {
         const t = n as Text;
         const p = t.parentElement;
         const v = (t.nodeValue ?? "").trim();
-        if (!p || SKIP.has(p.tagName) || p.closest("[data-ru-btn]")) continue;
+        if (!p || inSkipped(p) || p.closest("[data-ru-btn]")) continue;
         const words = v.match(/[A-Za-z]{2,}/g) ?? [];
         if (v.length >= 12 && words.length >= 3 && !PROTECTED.test(v) && !/[А-Яа-я@]/.test(v)) nodes.push(t);
       }
